@@ -16,6 +16,7 @@ import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.RandomUtils;
@@ -143,7 +144,8 @@ public class LoadTester {
                     count++;
                     latency[threadId][i] = -1;
                 } else {
-                    latency[threadId][i] = time;
+                    //store in micro seconds
+                    latency[threadId][i] = TimeUnit.MICROSECONDS.convert(time, TimeUnit.NANOSECONDS);
                 }
             }
             errorCount.addAndGet(count);
