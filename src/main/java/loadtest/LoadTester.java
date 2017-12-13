@@ -1,21 +1,29 @@
 package loadtest;
 
 import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.api.ContentProvider;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
+import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.inject.Named;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.commons.lang3.RandomUtils;
+
 @Named
 public class LoadTester {
+
+    private final static boolean DEBUG = Boolean.getBoolean("loadtest.debug");
 
     @Inject
     private Config config;
@@ -70,13 +78,18 @@ public class LoadTester {
             Request request = httpClient.newRequest(config.getProxyEndPoint());
             request.getHeaders().add("perf-target", config.getRouteHost());
 
+            request.method(HttpMethod.POST);
+            request.content(new MyContentProvider());
+
             ContentResponse cr = request.send();
             if (cr.getStatus() != 200) {
                 return false;
             }
             //just to make sure we read the data back
             String response = cr.getContentAsString();
-            //System.out.println(response);
+            if (DEBUG) {
+                System.out.println(response);
+            }
             response.length();
             return true;
         } catch (Exception e) {
@@ -93,9 +106,11 @@ public class LoadTester {
             }
         }
 
-        for (int i = 0; i < allLatency.length; i++) {
-            System.out.print(allLatency[i]);
-            System.out.print(",");
+        if (DEBUG) {
+            for (int i = 0; i < allLatency.length; i++) {
+                System.out.print(allLatency[i]);
+                System.out.print(",");
+            }
         }
 
         Arrays.sort(allLatency);
@@ -121,9 +136,9 @@ public class LoadTester {
         public void run() {
             int count = 0;
             for (int i = 0; i < config.getRequestCount(); i++) {
-                long start = System.currentTimeMillis();
+                long start = System.nanoTime();
                 boolean success = sendRequest();
-                long time = System.currentTimeMillis() - start;
+                long time = System.nanoTime() - start;
                 if (!success) {
                     count++;
                     latency[threadId][i] = -1;
@@ -148,6 +163,38 @@ public class LoadTester {
         }
 
         System.out.println("average in msecs -> " + total/count);
+    }
+
+    private class MyContentProvider implements ContentProvider {
+
+        @Override
+        public long getLength() {
+            return 2 * 1024;
+        }
+
+        @Override
+        public Iterator<ByteBuffer> iterator() {
+            return new MyIterator();
+        }
+    }
+
+    private class MyIterator implements Iterator<ByteBuffer> {
+
+        private int count = 0;
+
+        @Override
+        public boolean hasNext() {
+            return count == 0;
+        }
+
+        @Override
+        public ByteBuffer next() {
+            count++;
+            byte[] input = RandomUtils.nextBytes(2 * 1024);
+            ByteBuffer b = ByteBuffer.allocate(2 * 1024);
+            b.put(input);
+            return b;
+        }
     }
 
 }
