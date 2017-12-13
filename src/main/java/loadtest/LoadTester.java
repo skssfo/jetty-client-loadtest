@@ -8,6 +8,7 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.inject.Named;
+import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -75,7 +76,7 @@ public class LoadTester {
             }
             //just to make sure we read the data back
             String response = cr.getContentAsString();
-            System.out.println(response);
+            //System.out.println(response);
             response.length();
             return true;
         } catch (Exception e) {
@@ -84,7 +85,6 @@ public class LoadTester {
     }
 
     private void printStats() {
-        System.out.println("Error count " + errorCount.get());
         //merge all the latency numbers into a single array
         long[] allLatency = new long[config.getThreadCount() * config.getRequestCount()];
         for (int i = 0; i < config.getThreadCount(); i++) {
@@ -97,6 +97,16 @@ public class LoadTester {
             System.out.print(allLatency[i]);
             System.out.print(",");
         }
+
+        Arrays.sort(allLatency);
+
+        System.out.println("\n Error count " + errorCount.get());
+
+        printAverage(allLatency);
+        System.out.println("p50 is -> " + allLatency[allLatency.length/2]);
+        System.out.println("p75 is -> " + allLatency[(int) (allLatency.length * 0.75)]);
+        System.out.println("p90 is -> " + allLatency[(int) (allLatency.length * 0.9)]);
+
     }
 
     private class Task implements Runnable {
@@ -125,4 +135,19 @@ public class LoadTester {
             latch.countDown();
         }
     }
+
+    private void printAverage(long[] data) {
+        //ignore outliers - leave out some data in the beginning and end
+        int start = (int) (data.length * 0.1);
+        int end = (int) (data.length * 0.9);
+        int count = 0;
+        long total = 0;
+        for (int i = start; i < end; i++) {
+            total += data[i];
+            count++;
+        }
+
+        System.out.println("average in msecs -> " + total/count);
+    }
+
 }
