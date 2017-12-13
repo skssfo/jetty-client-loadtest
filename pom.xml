@@ -51,7 +51,12 @@
 			<artifactId>conscrypt-openjdk-uber</artifactId>
 			<version>1.0.0.RC11</version>
 		</dependency>
-	</dependencies>
+    <dependency>
+      <groupId>javax.inject</groupId>
+      <artifactId>javax.inject</artifactId>
+      <version>1</version>
+    </dependency>
+  </dependencies>
 
 	<build>
 		<plugins>

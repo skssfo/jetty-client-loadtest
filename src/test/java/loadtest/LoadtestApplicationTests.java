@@ -1,4 +1,4 @@
-package com.salesforce.kernel.casam.loadtest;
+package loadtest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
