@@ -1,25 +1,22 @@
 package loadtest;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.api.ContentProvider;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
+import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.inject.Named;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.commons.lang3.RandomUtils;
 
 @Named
 public class LoadTester {
@@ -80,9 +77,10 @@ public class LoadTester {
             request.getHeaders().add("perf-target", config.getRouteHost());
 
             request.method(HttpMethod.POST);
-            request.content(new MyContentProvider());
+            request.content(new StringContentProvider(RandomStringUtils.randomAlphanumeric(2 * 1024)));
 
             ContentResponse cr = request.send();
+
             if (cr.getStatus() != 200) {
                 return false;
             }
@@ -136,20 +134,24 @@ public class LoadTester {
         @Override
         public void run() {
             int count = 0;
-            for (int i = 0; i < config.getRequestCount(); i++) {
-                long start = System.nanoTime();
-                boolean success = sendRequest();
-                long time = System.nanoTime() - start;
-                if (!success) {
-                    count++;
-                    latency[threadId][i] = -1;
-                } else {
-                    //store in micro seconds
-                    latency[threadId][i] = TimeUnit.MICROSECONDS.convert(time, TimeUnit.NANOSECONDS);
+            try {
+                for (int i = 0; i < config.getRequestCount(); i++) {
+                    long start = System.nanoTime();
+                    boolean success = sendRequest();
+                    long time = System.nanoTime() - start;
+                    if (!success) {
+                        count++;
+                        latency[threadId][i] = -1;
+                    } else {
+                        //store in micro seconds
+                        latency[threadId][i] = TimeUnit.MICROSECONDS.convert(time, TimeUnit.NANOSECONDS);
+                    }
                 }
+            } finally {
+                errorCount.addAndGet(count);
+                latch.countDown();
             }
-            errorCount.addAndGet(count);
-            latch.countDown();
+
         }
     }
 
@@ -164,39 +166,8 @@ public class LoadTester {
             count++;
         }
 
-        System.out.println("average in msecs -> " + total/count);
-    }
-
-    private class MyContentProvider implements ContentProvider {
-
-        @Override
-        public long getLength() {
-            return 2 * 1024;
-        }
-
-        @Override
-        public Iterator<ByteBuffer> iterator() {
-            return new MyIterator();
+        if (count > 0) {
+            System.out.println("average in msecs -> " + total / count);
         }
     }
-
-    private class MyIterator implements Iterator<ByteBuffer> {
-
-        private int count = 0;
-
-        @Override
-        public boolean hasNext() {
-            return count == 0;
-        }
-
-        @Override
-        public ByteBuffer next() {
-            count++;
-            byte[] input = RandomUtils.nextBytes(2 * 1024);
-            ByteBuffer b = ByteBuffer.allocate(2 * 1024);
-            b.put(input);
-            return b;
-        }
-    }
-
 }
